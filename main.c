@@ -1,53 +1,108 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "shell.h"
-#include "path.h"
-#include "mygetline.h"
-#include "print_environment.h"
-#define MAX_PATH_DIRS 100
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
+#define MAX_COMMAND_LENGTH 100
+
+/**
+ * print_prompt - Prints the shell prompt.
+ */
+void print_prompt(void)
+{
+	printf("($) "); /* Display the prompt */
+	fflush(stdout); /* Flush stdout to ensure prompt is displayed */
+}
+
+/**
+ * read_command - Reads a command from the user.
+ * @command: The buffer to store the command.
+ * @size: The size of the buffer.
+ *
+ * Return: The number of characters read.
+ */
+ssize_t read_command(char *command, size_t size)
+{
+	ssize_t nread;
+
+	nread = getline(&command, &size, stdin);
+	if (nread == -1)
+	{
+		printf("\n");
+		exit(EXIT_SUCCESS);
+	}
+
+	return (nread);
+}
+
+/**
+ * execute_command - Executes the given command using execve.
+ * @command: The command to execute.
+ */
+void execute_command(char *command)
+{
+	char *args[2]; /* Arguments for the command */
+	pid_t pid;
+	int status; /* Variable to store the status of the child process */
+
+	extern char **environ; /* Declare environ variable */
+
+	args[0] = command;
+	args[1] = NULL;
+
+	pid = fork();
+
+	if (pid < 0)
+	{
+		perror("Fork error");
+		exit(EXIT_FAILURE);
+	}
+	else if (pid == 0)
+	{
+		/* Child process */
+		execve(command, args, environ);
+
+		/* If execve returns, an error occurred, print an error message */
+		perror(command);
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		/* Parent process */
+		/* Wait for the child process to complete */
+		waitpid(pid, &status, 0);
+
+		/* Check if the child process terminated normally */
+		if (WIFEXITED(status))
+		{
+			int exit_status = WEXITSTATUS(status);
+			printf("Child process exited with status %d\n", exit_status);
+		}
+	}
+}
+
+/**
+ * main - Simple UNIX command line interpreter (shell).
+ *
+ * Return: Always 0.
+ */
 int main(void)
 {
-    char *command = NULL;
-    ssize_t ret;
-    char *path_dirs[MAX_PATH_DIRS];
-    int num_dirs;
+	char command[MAX_COMMAND_LENGTH];
 
-    /* Get the PATH environment variable */
-    char *path_env = getenv("PATH");
-    if (path_env == NULL)
-    {
-        fprintf(stderr, "Error: PATH environment variable not set.\n");
-        return EXIT_FAILURE;
-    }
+	while (1)
+	{
+		print_prompt();
+		if (read_command(command, sizeof(command)) == -1)
+			break;
 
-    /* Tokenize the PATH environment variable into individual directories */
-    
-    num_dirs = tokenize_path(path_env, path_dirs);
+		/* Remove the trailing newline character from the command */
+		command[strcspn(command, "\n")] = '\0';
 
-    while (1)
-    {
-        print_prompt();
+		execute_command(command);
+	}
 
-        /* Read the command from the user */
-        ret = mygetline(&command, stdin);
-        if (ret == -1)
-        {
-            /* End of file or error in reading input, exit the shell */
-            free(command);
-            break;
-        }
-
-        /* Execute the command */
-        execute_command(command, path_dirs, num_dirs);
-
-        /* Free the dynamically allocated command buffer */
-        free(command);
-    }
-
-    /* Free the path directories */
-    free_path_dirs(path_dirs, num_dirs);
-
-    return EXIT_SUCCESS;
+	return (0);
 }
 
