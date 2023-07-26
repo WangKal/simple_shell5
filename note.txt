@@ -1,0 +1,4 @@
+gcc -g
+gdb ./simpple_shell
+list
+Saved the day
