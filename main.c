@@ -11,7 +11,7 @@
  */
 void print_prompt(void)
 {
-	printf("($) "); /* Display the prompt */
+	printf("#cisfun$ "); /* Display the prompt */
 	fflush(stdout); /* Flush stdout to ensure prompt is displayed */
 }
 
